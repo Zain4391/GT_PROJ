@@ -1,4 +1,3 @@
-import heapq
 import matplotlib.pyplot as plt
 import networkx as nx
 
@@ -23,7 +22,6 @@ class Graph:
         self.num = n
         self.locations = [None] * n
         self.adj_list = [[] for _ in range(n)]
-        self.mst_edges = []  # Store the edges in the MST
 
     def add_location(self, index, location):
         self.locations[index] = location
@@ -33,7 +31,6 @@ class Graph:
         self.adj_list[dest].append((self.locations[src].get_name(), cost))
 
     def prim_mst(self):
-        pq = []
         start_index = -1
         for i, location in enumerate(self.locations):
             if location.get_name() == "Delivery Station (Karachi)":
@@ -48,33 +45,41 @@ class Graph:
         parent = [None] * self.num
         in_mst = [False] * self.num
 
-        heapq.heappush(pq, (0, start_index))
         key[start_index] = 0
 
-        while pq:
-            u_key, u_index = heapq.heappop(pq)
-            in_mst[u_index] = True
+        for _ in range(self.num - 1):
+            # Find the vertex with the minimum key value which is not yet included in MST
+            u = -1
+            for i in range(self.num):
+                if not in_mst[i] and (u == -1 or key[i] < key[u]):
+                    u = i
 
-            for neighbor_name, weight in self.adj_list[u_index]:
+            in_mst[u] = True
+
+            # Update key values and parent of adjacent vertices
+            for neighbor_name, weight in self.adj_list[u]:
                 neighbor_index = -1
                 for i, location in enumerate(self.locations):
                     if location.get_name() == neighbor_name:
                         neighbor_index = i
                         break
 
-                if neighbor_index != -1 and not in_mst[neighbor_index] and weight < key[neighbor_index]:
+                if not in_mst[neighbor_index] and weight < key[neighbor_index]:
                     key[neighbor_index] = weight
-                    parent[neighbor_index] = u_index
-                    heapq.heappush(pq, (key[neighbor_index], neighbor_index))
+                    parent[neighbor_index] = u
 
         total_cost = 0
+        print(f"Prim's MST starting from delivery station:")
+        mst_edges = []
         for i in range(1, self.num):
             if parent[i] is not None:
-                # Collect the MST edges
-                self.mst_edges.append((self.locations[parent[i]].get_name(), self.locations[i].get_name(), key[i]))
-                total_cost += key[i]
+                weight = key[i]
+                print(f"Edge: {self.locations[parent[i]].get_name()} - {self.locations[i].get_name()} Weight: {weight}")
+                total_cost += weight
+                mst_edges.append((self.locations[parent[i]].get_name(), self.locations[i].get_name(), weight))
 
         print(f"Total Cost of MST: {total_cost}")
+        return mst_edges
 
 
 # Create the graph and add locations and connections
@@ -104,51 +109,37 @@ for src, dest, cost in edges:
     graph.link_location(src, dest, cost)
 
 # Run Prim's MST algorithm
-graph.prim_mst()
+mst_edges = graph.prim_mst()
 
-# Visualization using networkx
+# Visualization of the graph (initial graph and MST)
+
+# Create the initial graph (networkx)
 G = nx.Graph()
 
-# Adding nodes with positions for visualization
-locations = {
-    "Delivery Station (Karachi)": (0, 0),
-    "Clifton": (1, 4),
-    "Saddar": (3, 2),
-    "DHA": (4, 5),
-    "Gulshan-e-Iqbal": (6, 2),
-    "Karachi University": (8, 0),
-    "Korangi": (2, -2),
-    "Nazimabad": (5, 1),
-    "Lyari": (4, -3),
-    "North Karachi": (7, -2),
-}
-
-for location, pos in locations.items():
-    G.add_node(location, pos=pos)
-
-# Adding original edges with weights
+# Adding nodes and edges for the initial graph
 for src, dest, weight in edges:
     G.add_edge(graph.locations[src].get_name(), graph.locations[dest].get_name(), weight=weight)
 
-# Define positions for the graph nodes
-pos = nx.spring_layout(G, seed=42)
-
-# Draw the original graph with all edges
+# Draw the initial graph with all edges
 plt.figure(figsize=(12, 12))
+pos = nx.spring_layout(G, seed=42, k=0.5)  # Adjust 'k' for spreading the nodes further apart
 nx.draw(G, pos, with_labels=True, node_size=2000, node_color="lightblue", font_size=10, font_weight="bold", edge_color="gray")
 edge_labels = nx.get_edge_attributes(G, 'weight')
 nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color="red", font_size=8)
-plt.title("Graph of Locations in Karachi with Connection Costs")
+plt.title("Initial Graph with Connection Costs")
 plt.show()
 
-# Draw the MST based on Prim's output
-MST = nx.Graph()
-for src, dest, weight in graph.mst_edges:
-    MST.add_edge(src, dest, weight=weight)
+# Create the MST graph based on Prim's MST output
+mst_graph = nx.Graph()
 
+# Adding edges for the MST
+for edge in mst_edges:
+    mst_graph.add_edge(edge[0], edge[1], weight=edge[2])
+
+# Draw the MST
 plt.figure(figsize=(12, 12))
-nx.draw(MST, pos, with_labels=True, node_size=2000, node_color="lightgreen", font_size=10, font_weight="bold", edge_color="blue")
-mst_edge_labels = nx.get_edge_attributes(MST, 'weight')
-nx.draw_networkx_edge_labels(MST, pos, edge_labels=mst_edge_labels, font_color="red", font_size=8)
-plt.title("Minimum Spanning Tree (MST) of Locations in Karachi")
+nx.draw(mst_graph, pos, with_labels=True, node_size=2000, node_color="lightgreen", font_size=10, font_weight="bold", edge_color="blue")
+mst_edge_labels = nx.get_edge_attributes(mst_graph, 'weight')
+nx.draw_networkx_edge_labels(mst_graph, pos, edge_labels=mst_edge_labels, font_color="red", font_size=8)
+plt.title("Minimum Spanning Tree (MST) of Locations")
 plt.show()
